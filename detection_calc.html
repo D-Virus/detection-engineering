@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triaging Detection Requirements</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        #triage-form,
+        #triage-result {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h2, h3 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        label, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #triage-result span {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="triage-form">
+        <h2>Triaging Detection Requirements</h2>
+        <label for="description">Detection Requirement Description:</label>
+        <textarea id="description" rows="4" cols="50"></textarea>
+
+        <label for="threatSeverity">Threat Severity:</label>
+        <select id="threatSeverity">
+            <option value="0">0 - Threat is irrelevant</option>
+            <option value="1">1 - Threat is passive</option>
+            <option value="2">2 - Threat is active</option>
+            <option value="3">3 - Threat presents a severe risk</option>
+        </select>
+
+        <label for="orgAlignment">Organizational Alignment:</label>
+        <select id="orgAlignment">
+            <option value="0">0 - The threat is irrelevant</option>
+            <option value="1">1 - Threat might target in the future</option>
+            <option value="2">2 - The threat is widespread/untargeted</option>
+            <option value="3">3 - The threat targets our organization</option>
+        </select>
+
+        <label for="detectionCoverage">Detection Coverage:</label>
+        <select id="detectionCoverage">
+            <option value="0">0 - Full coverage is provided</option>
+            <option value="1">1 - Update required to existing detection</option>
+            <option value="2">2 - New detection is required</option>
+        </select>
+
+        <label for="activeExploits">Active Exploits:</label>
+        <select id="activeExploits">
+            <option value="0">0 - No exploit observed</option>
+            <option value="1">1 - Some activity observed but no public exploit</option>
+            <option value="2">2 - Public exploit code is available</option>
+        </select>
+
+        <button onclick="calculate()">Triage</button>
+    </div>
+
+    <div id="triage-result">
+        <h3>Result:</h3>
+        <p>Triage Score: <span id="score"></span></p>
+        <p>Priority Level: <span id="priority"></span></p>
+        <button onclick="generatePDF()">Print as PDF</button>
+    </div>
+
+    <script>
+        function calculate() {
+            const threatSeverity = parseInt(document.getElementById('threatSeverity').value);
+            const orgAlignment = parseInt(document.getElementById('orgAlignment').value);
+            const detectionCoverage = parseInt(document.getElementById('detectionCoverage').value);
+            const activeExploits = parseInt(document.getElementById('activeExploits').value);
+
+            const totalScore = threatSeverity + orgAlignment + detectionCoverage + activeExploits;
+            let priority = "Low";
+            if (totalScore >= 4 && totalScore <= 6) priority = "Medium";
+            else if (totalScore >= 7 && totalScore <= 9) priority = "High";
+            else if (totalScore >= 10) priority = "Critical";
+
+            document.getElementById('score').textContent = totalScore;
+            document.getElementById('priority').textContent = priority;
+        }
+
+        function generatePDF() {
+            const element = document.getElementById('triage-result');
+            html2pdf().from(element).save('triage_assessment.pdf');
+        }
+    </script>
+</body>
+
+</html>
+
