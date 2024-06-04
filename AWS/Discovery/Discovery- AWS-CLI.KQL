@@ -1,0 +1,67 @@
+//status: stable 
+//description: Detects when API's were called from AWS-CLI to enumerate accounts, policies, and cloud resources
+//references:
+// - https://attack.mitre.org/techniques/T1087/004/
+// - https://attack.mitre.org/techniques/T1580/
+//author: darod58
+//date: 2024/04/25
+//modified: 2024/06/04 from information to medium severity
+//logsource: AWSCloudTrail
+let SuspiciousCommands = pack_array(
+    // IAM commands
+    'iam.list-users', 
+    'iam.list-groups', 
+    'iam.list-roles', 
+    'iam.get-user',
+    'iam.list-access-keys',
+    // EC2 commands
+    'ec2.describe-vpcs', 
+    'ec2.describe-subnets', 
+    'ec2.describe-security-groups', 
+    'ec2.describe-network-acls', 
+    'ec2.describe-network-interfaces', 
+    'ec2.describe-route-tables', 
+    'ec2.describe-internet-gateways', 
+    'ec2.describe-vpc-peering-connections', 
+    'ec2.describe-transit-gateway-vpc-attachment', 
+    // Route 53 commands
+    'route53.list-hosted-zones', 
+    // KMS commands
+    'kms.list-keys', 
+    'kms.list-aliases',
+    // ECS commands
+    'ecs.list-clusters', 
+    'ecs.list-services',
+    // Additional AWS services
+    's3.list-buckets', 
+    's3.get-bucket-acl',
+    'lambda.list-functions',
+    'rds.describe-db-instances'
+);
+// Retrieve AWS CloudTrail events
+    AWSCloudTrail 
+    // Filter events with UserAgent starting with "aws-cli"
+    | where UserAgent startswith "aws-cli" 
+    // Extract the command from the UserAgent using string splitting
+    | extend command = tostring(split(UserAgent, "off command/", 1)[0])  
+    // Filter events based on predefined suspicious command list
+    | where command has_any (SuspiciousCommands)  
+    | extend UserIdentityArn = iif(isempty(UserIdentityArn), tostring(parse_json(Resources)[0].ARN), UserIdentityArn)
+    | extend UserName = tostring(split(UserIdentityArn, '/')[-1])
+    | extend AccountName = case( UserIdentityPrincipalid == "Anonymous", "Anonymous", isempty(UserIdentityUserName), UserName, UserIdentityUserName)
+    | extend AccountName = iif(AccountName contains "@", tostring(split(AccountName, '@', 0)[0]), AccountName),
+    AccountUPNSuffix = iif(AccountName contains "@", tostring(split(AccountName, '@', 1)[0]), "")
+    // Summarize relevant information for further analysis
+    | summarize 
+        CommadCount = dcount(command), 
+        EventCount = dcount(EventName), 
+        commands = make_list(command), 
+        Events = make_list(EventName) 
+        by 
+        bin(TimeGenerated, 1min), 
+        RecipientAccountId, AccountName, AccountUPNSuffix, 
+        UserIdentityUserName, 
+        SourceIpAddress, 
+        SessionMfaAuthenticated 
+    // Filter out results with a sufficient count of unique suspicious commands in 1 min time window
+    | where CommadCount >= 3
